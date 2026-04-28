@@ -37,15 +37,16 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      # ── FIXED: no env block, secrets referenced directly in run ──
+      # Configure DVC to use DagsHub as remote storage
       - name: Configure DVC remote (DagsHub)
         run: |
-          dvc remote modify origin auth basic
-          dvc remote modify origin user ${{ secrets.DAGSHUB_USERNAME }}
-          dvc remote modify origin password ${{ secrets.DAGSHUB_TOKEN }}
+          dvc remote modify myremote auth basic
+          dvc remote modify myremote user ${{ secrets.DAGSHUB_USERNAME }}
+          dvc remote modify myremote password ${{ secrets.DAGSHUB_TOKEN }}
 
-      - name: Pull data with DVC
-        run: dvc pull
+      # ── Only pull input data, not model outputs ───────────────
+      - name: Pull input data
+        run: dvc pull train/train.csv
 
       - name: Override epochs if provided
         if: github.event_name == 'workflow_dispatch'
@@ -60,16 +61,18 @@ jobs:
           print(f"Epochs set to {p['model']['epochs']}")
           EOF
 
+      # ── Train — this CREATES model.keras, plots, dvclive ─────
       - name: Run DVC pipeline
         run: dvc repro
+
+      # ── Now push the newly created outputs ────────────────────
+      - name: Push artifacts to DVC remote
+        run: dvc push
 
       - name: Show metrics
         run: |
           dvc metrics show
           dvc metrics diff HEAD~1 || echo "No previous run to compare against"
-
-      - name: Push artifacts to DVC remote
-        run: dvc push
 
       - name: Commit dvc.lock and metrics
         run: |
