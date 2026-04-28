@@ -4,7 +4,7 @@ data: # data-related parameters
   random_seed: 42 # for reproducibility when splitting data
 
 model: # model architecture and training parameters
-  epochs: 100 # number of training epochs
+  epochs: 10 # number of training epochs
   batch_size: 32           # number of samples per training batch
   learning_rate: 0.001     # adam default, now explicit
   dense_units: 10          # kept for compatibility
