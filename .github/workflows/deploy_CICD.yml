@@ -17,17 +17,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # ── 1. Checkout ───────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.PAT_TOKEN }}
 
+      # ── Python setup ───────────────────────────────────────
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
+      # ── Cache pip dependencies ───────────────────────────────
       - name: Cache pip dependencies
         uses: actions/cache@v4
         with:
@@ -35,6 +38,7 @@ jobs:
           key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
           restore-keys: ${{ runner.os }}-pip-
 
+      # ── Install dependencies ───────────────────────────────
       - name: Install dependencies
         run: pip install -r requirements.txt
 
@@ -44,11 +48,21 @@ jobs:
           dvc remote modify origin auth basic
           dvc remote modify origin user ${{ secrets.DAGSHUB_USERNAME }}
           dvc remote modify origin password ${{ secrets.DAGSHUB_TOKEN }}
-
+        # name: Configure DVC remote
+        # env:
+        #   GDRIVE_CREDENTIALS_DATA: ${{ secrets.GDRIVE_CREDENTIALS_DATA }}
+        #   # OR for S3:
+        #   # AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        #   # AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        # run: |
+        #   dvc remote modify myremote gdrive_use_service_account true
+        #   # Adjust this block to match whichever remote you chose in Step 4
+        
       # ── Only pull input data, not model outputs ───────────────
       - name: Pull input data
         run: dvc pull train/train.csv
 
+      # ── Override params from workflow_dispatch input ───────
       - name: Override epochs if provided
         if: github.event_name == 'workflow_dispatch'
         run: |
@@ -62,7 +76,8 @@ jobs:
           print(f"Epochs set to {p['model']['epochs']}")
           EOF
 
-      # ── Train — this CREATES model.keras, plots, dvclive ─────
+      # ── Reproduce DVC pipeline ────────────────────────────
+      # dvc repro only re-runs stages whose deps/params changed.
       - name: Run DVC pipeline
         run: dvc repro
 
@@ -70,6 +85,7 @@ jobs:
       - name: Push artifacts to DVC remote
         run: dvc push
 
+      # ── Show and compare metrics ──────────────────────────
       - name: Show metrics
         run: |
           dvc metrics show
@@ -84,6 +100,7 @@ jobs:
           git diff --staged --quiet || git commit -m "update dvc.lock and metrics [skip ci]"
           git push
 
+      # ── Upload artifacts for download from Actions UI ─────
       - name: Upload trained model
         uses: actions/upload-artifact@v4
         with:
@@ -100,7 +117,8 @@ jobs:
             metrics.json
             dvclive/report.html
           retention-days: 30
-
+      
+      # ── Post metrics as PR comment ──────────────────────
       - name: Post PR comment with metrics diff
         if: github.event_name == 'pull_request'
         run: |
