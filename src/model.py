@@ -163,7 +163,7 @@ print("="*50)
 # Train the model
 history = model.fit(
     X_train, y_train,
-    epochs=100,
+    epochs=10,
     verbose=1,                    # Show progress bar
     validation_split=0.2          # Use 20% of training data for validation
 )
