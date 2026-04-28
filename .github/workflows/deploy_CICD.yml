@@ -44,12 +44,6 @@ jobs:
       #   with:
       #     category: "/language:python"
 
-
-
-  build:
-    needs: [CICD_Deployment]
-    runs-on: ubuntu-latest
-    steps:
        # 6. Train the model — runs model.py
       - name: Train model
         run: python src/model.py
